@@ -1,0 +1,13 @@
+version: 2
+
+models:
+  - name: stg_aluminum_prices
+    description: "Cleaned daily OHLCV data for CME aluminum futures (ALI=F)"
+    data_tests:
+      # OHLC sanity: high must be the highest price of the day
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "high_price >= low_price"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "high_price >= close_price and low_price <= close_price"

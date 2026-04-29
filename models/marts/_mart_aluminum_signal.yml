@@ -4,12 +4,25 @@ models:
   - name: mart_aluminum_signal
     description: >
       Daily aluminum price enriched with 3-month and 9-month moving averages
-      and a buy/hold signal derived from golden cross / death cross logic.
-      Intended as the single Tableau Public data source.
+      and a mean-reversion buy/hold/neutral signal. Intended as the single
+      Tableau Public data source.
     config:
       meta:
         elementary:
           timestamp_column: "price_date"
+    data_tests:
+      # business logic: if signal = BUY then price must be below both averages
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "signal != 'BUY' or (close_price < ma_3m and close_price < ma_9m)"
+      # business logic: if signal = HOLD then price must be above both averages
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "signal != 'HOLD' or (close_price > ma_3m and close_price > ma_9m)"
+      # sanity: all price and average values must be positive
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "close_price > 0 and ma_3m > 0 and ma_9m > 0"
     columns:
       - name: price_date
         description: "Trading date"
@@ -20,6 +33,11 @@ models:
         description: "EOD close price in USD per troy oz (CME aluminum futures)"
         data_tests:
           - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 50
+                max_value: 5000
+                inclusive: true
           - elementary.column_anomalies:
               arguments:
                 column_anomalies:
@@ -29,14 +47,27 @@ models:
         description: "63-trading-day rolling average of close price"
         data_tests:
           - not_null
+          - elementary.column_anomalies:
+              arguments:
+                column_anomalies:
+                  - null_count
+                  - average
+                  - standard_deviation
       - name: ma_9m
         description: "189-trading-day rolling average of close price"
         data_tests:
           - not_null
+          - elementary.column_anomalies:
+              arguments:
+                column_anomalies:
+                  - null_count
+                  - average
+                  - standard_deviation
       - name: signal
-        description: "Buy/hold recommendation based on 3M vs 9M MA crossover"
+        description: "Buy/hold/neutral recommendation based on price vs moving averages"
         data_tests:
           - not_null
+          - dbt_utils.not_constant
           - accepted_values:
               arguments:
                 values:
@@ -44,3 +75,11 @@ models:
                   - 'HOLD'
                   - 'NEUTRAL'
                   - 'INSUFFICIENT DATA'
+      - name: days_in_9m_window
+        description: "Actual number of trading days used in the 9M window"
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 189
+                inclusive: true
