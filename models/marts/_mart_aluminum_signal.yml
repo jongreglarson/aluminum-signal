@@ -3,32 +3,47 @@ version: 2
 models:
   - name: mart_aluminum_signal
     description: >
-      Daily aluminum price enriched with 3-month and 9-month moving averages
-      and a mean-reversion buy/hold/neutral signal. Intended as the single
-      Tableau Public data source.
+      Multi-granularity aluminum price signal table combining daily (last 14 days),
+      weekly (last 13 weeks), and monthly (last 13 months) views. Each row carries
+      30-day and 90-day calendar moving averages and a mean-reversion buy/hold/neutral
+      signal. Intended as the single Tableau Public and Google Sheets data source.
     config:
       meta:
         elementary:
           timestamp_column: "price_date"
     data_tests:
-      # business logic: if signal = BUY then price must be below both averages
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - granularity
+              - price_date
+      # business logic: BUY only fires when price is below both averages
       - dbt_utils.expression_is_true:
           arguments:
-            expression: "signal != 'BUY' or (close_price < ma_3m and close_price < ma_9m)"
-      # business logic: if signal = HOLD then price must be above both averages
+            expression: "signal != 'BUY' or (close_price < ma_30d and close_price < ma_90d)"
+      # business logic: HOLD only fires when price is above both averages
       - dbt_utils.expression_is_true:
           arguments:
-            expression: "signal != 'HOLD' or (close_price > ma_3m and close_price > ma_9m)"
+            expression: "signal != 'HOLD' or (close_price > ma_30d and close_price > ma_90d)"
       # sanity: all price and average values must be positive
       - dbt_utils.expression_is_true:
           arguments:
-            expression: "close_price > 0 and ma_3m > 0 and ma_9m > 0"
+            expression: "close_price > 0 and ma_30d > 0 and ma_90d > 0"
     columns:
-      - name: price_date
-        description: "Trading date"
+      - name: granularity
+        description: "Row frequency: DAILY, WEEKLY, or MONTHLY"
         data_tests:
           - not_null
-          - unique
+          - accepted_values:
+              arguments:
+                values:
+                  - 'DAILY'
+                  - 'WEEKLY'
+                  - 'MONTHLY'
+      - name: price_date
+        description: "Trading date (most recent in the period for weekly/monthly rows)"
+        data_tests:
+          - not_null
       - name: close_price
         description: "EOD close price in USD per troy oz (CME aluminum futures)"
         data_tests:
@@ -43,8 +58,8 @@ models:
                 column_anomalies:
                   - null_count
                   - zero_count
-      - name: ma_3m
-        description: "63-trading-day rolling average of close price"
+      - name: ma_30d
+        description: "Average close price over the preceding 30 calendar days"
         data_tests:
           - not_null
           - elementary.column_anomalies:
@@ -53,8 +68,8 @@ models:
                   - null_count
                   - average
                   - standard_deviation
-      - name: ma_9m
-        description: "189-trading-day rolling average of close price"
+      - name: ma_90d
+        description: "Average close price over the preceding 90 calendar days"
         data_tests:
           - not_null
           - elementary.column_anomalies:
@@ -64,7 +79,7 @@ models:
                   - average
                   - standard_deviation
       - name: signal
-        description: "Buy/hold/neutral recommendation based on price vs moving averages"
+        description: "BUY when price < both MAs, HOLD when price > both MAs, else NEUTRAL"
         data_tests:
           - not_null
           - dbt_utils.not_constant
@@ -75,11 +90,11 @@ models:
                   - 'HOLD'
                   - 'NEUTRAL'
                   - 'INSUFFICIENT DATA'
-      - name: days_in_9m_window
-        description: "Actual number of trading days used in the 9M window"
+      - name: days_in_90d_window
+        description: "Actual trading days counted in the 90-day calendar window"
         data_tests:
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 1
-                max_value: 189
+                max_value: 65
                 inclusive: true
