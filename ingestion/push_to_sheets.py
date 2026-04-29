@@ -4,7 +4,6 @@ it to a Google Sheet using a service account.
 """
 
 import os
-import json
 
 import snowflake.connector
 import gspread
@@ -62,8 +61,8 @@ def fetch_from_snowflake():
 
 
 def push_to_sheets(columns, rows):
-    sa_info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"])
-    gc       = gspread.service_account_from_dict(sa_info)
+    sa_path = os.environ["GOOGLE_SERVICE_ACCOUNT_PATH"]
+    gc      = gspread.service_account(filename=sa_path)
     sheet    = gc.open_by_key(SHEET_ID)
     ws       = sheet.get_worksheet_by_id(WORKSHEET_GID)
 

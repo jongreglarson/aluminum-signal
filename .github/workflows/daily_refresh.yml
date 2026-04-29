@@ -69,13 +69,16 @@ jobs:
       - name: Run dbt build
         run: dbt build
 
+      - name: Decode Google service account key
+        run: echo "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON_B64 }}" | base64 -d > /tmp/sa.json
+
       - name: Push to Google Sheets
         env:
           SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
           SNOWFLAKE_PRIVATE_KEY_PATH: /tmp/rsa_key.p8
           SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SERVICE_ACCOUNT_PATH: /tmp/sa.json
         run: python ingestion/push_to_sheets.py
 
       - name: Notify on failure
