@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: mart_aluminum_signal
+    description: >
+      Daily aluminum price enriched with 3-month and 9-month moving averages
+      and a buy/hold signal derived from golden cross / death cross logic.
+      Intended as the single Tableau Public data source.
+    config:
+      meta:
+        elementary:
+          timestamp_column: "price_date"
+    columns:
+      - name: price_date
+        description: "Trading date"
+        data_tests:
+          - not_null
+          - unique
+      - name: close_price
+        description: "EOD close price in USD per troy oz (CME aluminum futures)"
+        data_tests:
+          - not_null
+          - elementary.column_anomalies:
+              arguments:
+                column_anomalies:
+                  - null_count
+                  - zero_count
+      - name: ma_3m
+        description: "63-trading-day rolling average of close price"
+        data_tests:
+          - not_null
+      - name: ma_9m
+        description: "189-trading-day rolling average of close price"
+        data_tests:
+          - not_null
+      - name: signal
+        description: "Buy/hold recommendation based on 3M vs 9M MA crossover"
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - 'BUY'
+                  - 'HOLD'
+                  - 'GOLDEN CROSS - BUY'
+                  - 'DEATH CROSS - HOLD'
+                  - 'INSUFFICIENT DATA'

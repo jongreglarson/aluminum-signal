@@ -1,0 +1,34 @@
+name: 'aluminum_signal'
+version: '1.0.0'
+config-version: 2
+
+profile: 'aluminum_signal'
+
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  aluminum_signal:
+    +tags: ['aluminum', 'daily']
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: view
+    marts:
+      +schema: marts
+      +materialized: table
+  elementary:
+    +schema: elementary
+    +tags: []
+
+data_tests:
+  +store_failures: true
+  +schema: test_results
+  +severity: warn
+
+flags:
+  require_generic_test_arguments_property: true

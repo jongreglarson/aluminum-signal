@@ -1,0 +1,7 @@
+.env
+profiles.yml
+target/
+dbt_packages/
+logs/
+.user.yml
+partial_parse.msgpack
