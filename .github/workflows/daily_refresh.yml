@@ -70,7 +70,10 @@ jobs:
         run: dbt build
 
       - name: Decode Google service account key
-        run: echo "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON_B64 }}" | base64 -d > /tmp/sa.json
+        run: |
+          echo "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON_B64 }}" | tr -d ' \r\n' | base64 -d > /tmp/sa.json
+          echo "sa.json size: $(wc -c < /tmp/sa.json) bytes"
+          if [ ! -s /tmp/sa.json ]; then echo "ERROR: sa.json is empty — check GOOGLE_SERVICE_ACCOUNT_JSON_B64 secret" && exit 1; fi
 
       - name: Push to Google Sheets
         env:
