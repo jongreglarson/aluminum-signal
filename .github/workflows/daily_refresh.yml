@@ -1,0 +1,74 @@
+name: Daily Aluminum Price Refresh
+
+on:
+  schedule:
+    - cron: '0 7 * * *'  # 7:00 AM UTC daily
+  workflow_dispatch:      # allow manual trigger from GitHub UI
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache dbt packages
+        uses: actions/cache@v4
+        with:
+          path: dbt_packages
+          key: dbt-packages-${{ hashFiles('packages.yml') }}
+
+      - name: Install dependencies
+        run: |
+          pip install "dbt-core~=1.11.0" "dbt-snowflake~=1.11.0"
+          pip install -r ingestion/requirements.txt
+
+      - name: Decode Snowflake private key
+        run: echo "${{ secrets.SNOWFLAKE_PRIVATE_KEY_B64 }}" | base64 -d > /tmp/rsa_key.p8
+
+      - name: Write dbt profiles.yml
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
+        run: |
+          cat > profiles.yml << EOF
+          aluminum_signal:
+            target: prod
+            outputs:
+              prod:
+                type: snowflake
+                account: "${SNOWFLAKE_ACCOUNT}"
+                user: "${SNOWFLAKE_USER}"
+                private_key_path: /tmp/rsa_key.p8
+                private_key_passphrase: "${SNOWFLAKE_PRIVATE_KEY_PASSPHRASE}"
+                role: TRANSFORM
+                database: ALUMINUM
+                schema: PROD
+                threads: 4
+                warehouse: COMPUTE_WH
+          EOF
+
+      - name: Fetch latest prices
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PRIVATE_KEY_PATH: /tmp/rsa_key.p8
+          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
+        run: python ingestion/load_prices.py
+
+      - name: Install dbt packages
+        run: dbt deps
+
+      - name: Run dbt build
+        run: dbt build
+
+      - name: Notify on failure
+        if: failure()
+        run: echo "Pipeline failed — check logs above"
