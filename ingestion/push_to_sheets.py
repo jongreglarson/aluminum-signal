@@ -24,7 +24,8 @@ select
     price_vs_ma_90d,
     price_vs_ma_90d_pct,
     ma_spread,
-    signal
+    signal,
+    refreshed_at::string                        as refreshed_at
 from ALUMINUM.MARTS.MART_ALUMINUM_SIGNAL
 order by granularity, price_date desc
 """

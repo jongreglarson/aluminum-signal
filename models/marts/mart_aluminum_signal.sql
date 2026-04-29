@@ -49,9 +49,9 @@ monthly as (
         and dense_rank() over (order by date_trunc('month', price_date) desc) <= 13
 )
 
-select * from daily
+select *, current_timestamp() as refreshed_at from daily
 union all
-select * from weekly
+select *, current_timestamp() as refreshed_at from weekly
 union all
-select * from monthly
+select *, current_timestamp() as refreshed_at from monthly
 order by granularity, price_date desc
