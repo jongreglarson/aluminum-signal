@@ -42,6 +42,5 @@ models:
                 values:
                   - 'BUY'
                   - 'HOLD'
-                  - 'GOLDEN CROSS - BUY'
-                  - 'DEATH CROSS - HOLD'
+                  - 'NEUTRAL'
                   - 'INSUFFICIENT DATA'
