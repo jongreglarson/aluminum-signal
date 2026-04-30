@@ -66,9 +66,7 @@ jobs:
         run: |
           edr report \
             --profiles-dir . \
-            --project-dir . \
-            --profile aluminum_signal \
-            --target prod
+            --profile-target prod
 
       - name: Assemble site
         run: |
