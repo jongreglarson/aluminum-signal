@@ -1,0 +1,203 @@
+name: Publish Docs to GitHub Pages
+
+on:
+  schedule:
+    - cron: '30 7 * * *'   # 7:30 AM UTC — 30 min after daily refresh
+  workflow_dispatch:
+
+jobs:
+  publish-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache dbt packages
+        uses: actions/cache@v4
+        with:
+          path: dbt_packages
+          key: dbt-packages-${{ hashFiles('packages.yml') }}
+
+      - name: Install dependencies
+        run: |
+          pip install "dbt-core~=1.11.0" "dbt-snowflake~=1.11.0" "elementary-data[snowflake]"
+
+      - name: Decode Snowflake private key
+        run: echo "${{ secrets.SNOWFLAKE_PRIVATE_KEY_B64 }}" | base64 -d > /tmp/rsa_key.p8
+
+      - name: Write dbt profiles.yml
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
+        run: |
+          cat > profiles.yml << EOF
+          aluminum_signal:
+            target: prod
+            outputs:
+              prod:
+                type: snowflake
+                account: "${SNOWFLAKE_ACCOUNT}"
+                user: "${SNOWFLAKE_USER}"
+                private_key_path: /tmp/rsa_key.p8
+                private_key_passphrase: "${SNOWFLAKE_PRIVATE_KEY_PASSPHRASE}"
+                role: TRANSFORM
+                database: ALUMINUM
+                schema: PROD
+                threads: 4
+                warehouse: COMPUTE_WH
+          EOF
+
+      - name: Install dbt packages
+        run: dbt deps
+
+      - name: Generate dbt docs
+        run: dbt docs generate
+
+      - name: Generate Elementary report
+        run: |
+          edr report \
+            --profiles-dir . \
+            --project-dir . \
+            --profile aluminum_signal \
+            --target prod
+
+      - name: Assemble site
+        run: |
+          mkdir -p site/dbt site/elementary
+          cp target/index.html target/catalog.json target/manifest.json site/dbt/
+          REPORT=$(find edr_target -name "*.html" | head -1)
+          if [ -z "$REPORT" ]; then
+            echo "ERROR: Elementary report not found" && exit 1
+          fi
+          cp "$REPORT" site/elementary/index.html
+
+      - name: Write landing page
+        run: |
+          cat > site/index.html << 'HTMLEOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Aluminum Signal — Pipeline Docs</title>
+            <style>
+              * { box-sizing: border-box; margin: 0; padding: 0; }
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: #0f1117;
+                color: #e2e8f0;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              }
+              .container {
+                text-align: center;
+                padding: 2rem;
+                max-width: 640px;
+                width: 100%;
+              }
+              h1 {
+                font-size: 2rem;
+                font-weight: 700;
+                color: #f8fafc;
+                margin-bottom: 0.5rem;
+                letter-spacing: -0.02em;
+              }
+              .subtitle {
+                color: #64748b;
+                font-size: 0.95rem;
+                margin-bottom: 3rem;
+              }
+              .cards {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 1.25rem;
+              }
+              .card {
+                background: #1a2035;
+                border: 1px solid #2d3a52;
+                border-radius: 12px;
+                padding: 2rem 1.5rem;
+                text-decoration: none;
+                color: inherit;
+                transition: border-color 0.2s, transform 0.15s;
+                display: block;
+              }
+              .card:hover {
+                border-color: #6366f1;
+                transform: translateY(-3px);
+              }
+              .card-label {
+                display: inline-block;
+                font-size: 0.7rem;
+                font-weight: 600;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                color: #6366f1;
+                background: rgba(99,102,241,0.12);
+                border-radius: 4px;
+                padding: 2px 8px;
+                margin-bottom: 1rem;
+              }
+              .card-title {
+                font-size: 1.05rem;
+                font-weight: 600;
+                color: #f1f5f9;
+                margin-bottom: 0.5rem;
+              }
+              .card-desc {
+                font-size: 0.82rem;
+                color: #64748b;
+                line-height: 1.55;
+              }
+              .footer {
+                margin-top: 3rem;
+                font-size: 0.75rem;
+                color: #334155;
+              }
+              @media (max-width: 480px) {
+                .cards { grid-template-columns: 1fr; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>Aluminum Signal</h1>
+              <p class="subtitle">dbt &middot; Snowflake &middot; GitHub Actions &middot; refreshed daily at 3 AM ET</p>
+              <div class="cards">
+                <a href="dbt/" class="card">
+                  <div class="card-label">dbt</div>
+                  <div class="card-title">Lineage &amp; Documentation</div>
+                  <div class="card-desc">Model lineage graph, column-level docs, and source-to-mart dependencies</div>
+                </a>
+                <a href="elementary/" class="card">
+                  <div class="card-label">Elementary</div>
+                  <div class="card-title">Test Report</div>
+                  <div class="card-desc">Data quality tests, anomaly detection results, and pipeline run history</div>
+                </a>
+              </div>
+              <p class="footer">Data sourced from Yahoo Finance (ALI=F) &middot; <a href="https://github.com/jongreglarson/aluminum-signal" style="color:#334155">GitHub</a></p>
+            </div>
+          </body>
+          </html>
+          HTMLEOF
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+
+      - name: Notify on failure
+        if: failure()
+        run: echo "Docs publish failed — check logs above"
