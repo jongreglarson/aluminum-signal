@@ -54,6 +54,20 @@ jobs:
                 schema: PROD
                 threads: 4
                 warehouse: COMPUTE_WH
+          elementary:
+            target: prod
+            outputs:
+              prod:
+                type: snowflake
+                account: "${SNOWFLAKE_ACCOUNT}"
+                user: "${SNOWFLAKE_USER}"
+                private_key_path: /tmp/rsa_key.p8
+                private_key_passphrase: "${SNOWFLAKE_PRIVATE_KEY_PASSPHRASE}"
+                role: TRANSFORM
+                database: ALUMINUM
+                schema: ELEMENTARY
+                threads: 4
+                warehouse: COMPUTE_WH
           EOF
 
       - name: Install dbt packages
