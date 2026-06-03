@@ -18,56 +18,8 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Cache dbt packages
-        uses: actions/cache@v4
-        with:
-          path: dbt_packages
-          key: dbt-packages-${{ hashFiles('packages.yml') }}
-
       - name: Install dependencies
-        run: |
-          pip install "dbt-core~=1.11.0" "dbt-snowflake~=1.11.0"
-          pip install -r ingestion/requirements.txt
-
-      - name: Decode Snowflake private key
-        run: echo "${{ secrets.SNOWFLAKE_PRIVATE_KEY_B64 }}" | base64 -d > /tmp/rsa_key.p8
-
-      - name: Write dbt profiles.yml
-        env:
-          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
-          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
-        run: |
-          cat > profiles.yml << EOF
-          aluminum_signal:
-            target: prod
-            outputs:
-              prod:
-                type: snowflake
-                account: "${SNOWFLAKE_ACCOUNT}"
-                user: "${SNOWFLAKE_USER}"
-                private_key_path: /tmp/rsa_key.p8
-                private_key_passphrase: "${SNOWFLAKE_PRIVATE_KEY_PASSPHRASE}"
-                role: TRANSFORM
-                database: ALUMINUM
-                schema: PROD
-                threads: 4
-                warehouse: COMPUTE_WH
-          EOF
-
-      - name: Fetch latest prices
-        env:
-          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
-          SNOWFLAKE_PRIVATE_KEY_PATH: /tmp/rsa_key.p8
-          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
-        run: python ingestion/load_prices.py
-
-      - name: Install dbt packages
-        run: dbt deps
-
-      - name: Run dbt build
-        run: dbt build
+        run: pip install -r ingestion/requirements.txt
 
       - name: Decode Google service account key
         run: |
@@ -75,14 +27,10 @@ jobs:
           echo "sa.json size: $(wc -c < /tmp/sa.json) bytes"
           if [ ! -s /tmp/sa.json ]; then echo "ERROR: sa.json is empty — check GOOGLE_SERVICE_ACCOUNT_JSON_B64 secret" && exit 1; fi
 
-      - name: Push to Google Sheets
+      - name: Run pipeline
         env:
-          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
-          SNOWFLAKE_PRIVATE_KEY_PATH: /tmp/rsa_key.p8
-          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
           GOOGLE_SERVICE_ACCOUNT_PATH: /tmp/sa.json
-        run: python ingestion/push_to_sheets.py
+        run: python ingestion/pipeline.py
 
       - name: Notify on failure
         if: failure()
