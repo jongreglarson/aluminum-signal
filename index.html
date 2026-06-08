@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Aluminum Signal — Pipeline Docs</title>
+  <title>Aluminum Signal — Pipeline</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -18,7 +18,7 @@
     .container {
       text-align: center;
       padding: 2rem;
-      max-width: 640px;
+      max-width: 680px;
       width: 100%;
     }
     h1 {
@@ -33,20 +33,60 @@
       font-size: 0.95rem;
       margin-bottom: 3rem;
     }
+    .pipeline {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      margin-bottom: 3rem;
+      flex-wrap: wrap;
+    }
+    .step {
+      background: #1a2035;
+      border: 1px solid #2d3a52;
+      border-radius: 10px;
+      padding: 0.9rem 1.25rem;
+      min-width: 120px;
+    }
+    .step-label {
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #6366f1;
+      margin-bottom: 0.35rem;
+    }
+    .step-name {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+    .step-detail {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-top: 0.2rem;
+    }
+    .arrow {
+      color: #334155;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
     .cards {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 1.25rem;
+      margin-bottom: 2.5rem;
     }
     .card {
       background: #1a2035;
       border: 1px solid #2d3a52;
       border-radius: 12px;
-      padding: 2rem 1.5rem;
+      padding: 1.75rem 1.5rem;
       text-decoration: none;
       color: inherit;
       transition: border-color 0.2s, transform 0.15s;
       display: block;
+      text-align: left;
     }
     .card:hover {
       border-color: #6366f1;
@@ -54,7 +94,7 @@
     }
     .card-label {
       display: inline-block;
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       font-weight: 600;
       letter-spacing: 0.1em;
       text-transform: uppercase;
@@ -62,46 +102,98 @@
       background: rgba(99,102,241,0.12);
       border-radius: 4px;
       padding: 2px 8px;
-      margin-bottom: 1rem;
+      margin-bottom: 0.9rem;
     }
     .card-title {
-      font-size: 1.05rem;
+      font-size: 1rem;
       font-weight: 600;
       color: #f1f5f9;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.4rem;
     }
     .card-desc {
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       color: #64748b;
       line-height: 1.55;
     }
+    .signal-pills {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 2rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .pill {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      padding: 4px 12px;
+      border-radius: 20px;
+      border: 1px solid;
+    }
+    .pill-buy   { color: #4ade80; border-color: #166534; background: rgba(74,222,128,0.08); }
+    .pill-hold  { color: #facc15; border-color: #713f12; background: rgba(250,204,21,0.08); }
+    .pill-neutral { color: #94a3b8; border-color: #334155; background: rgba(148,163,184,0.08); }
     .footer {
-      margin-top: 3rem;
       font-size: 0.75rem;
       color: #334155;
     }
-    @media (max-width: 480px) {
+    .footer a { color: #475569; text-decoration: none; }
+    .footer a:hover { color: #94a3b8; }
+    @media (max-width: 520px) {
       .cards { grid-template-columns: 1fr; }
+      .pipeline { flex-direction: column; }
+      .arrow { transform: rotate(90deg); }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Aluminum Signal</h1>
-    <p class="subtitle">dbt &middot; Snowflake &middot; GitHub Actions &middot; refreshed daily at 3 AM ET</p>
+    <p class="subtitle">Mean-reversion signals for ALI=F &middot; refreshed daily at 3 AM ET</p>
+
+    <div class="pipeline">
+      <div class="step">
+        <div class="step-label">Source</div>
+        <div class="step-name">Yahoo Finance</div>
+        <div class="step-detail">ALI=F daily close</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="step">
+        <div class="step-label">Transform</div>
+        <div class="step-name">pandas</div>
+        <div class="step-detail">30d &amp; 90d rolling MA</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="step">
+        <div class="step-label">Output</div>
+        <div class="step-name">Google Sheets</div>
+        <div class="step-detail">Daily / Weekly / Monthly</div>
+      </div>
+    </div>
+
+    <div class="signal-pills">
+      <span class="pill pill-buy">BUY — below both MAs</span>
+      <span class="pill pill-hold">HOLD — above both MAs</span>
+      <span class="pill pill-neutral">NEUTRAL — mixed</span>
+    </div>
+
     <div class="cards">
-      <a href="dbt/" class="card">
-        <div class="card-label">dbt</div>
-        <div class="card-title">Lineage &amp; Documentation</div>
-        <div class="card-desc">Model lineage graph, column-level docs, and source-to-mart dependencies</div>
+      <a href="https://docs.google.com/spreadsheets/d/1ihpy_x48lPwr4KGbrBBshTIV5sIPuk3SXWm9FZ2sGFs" class="card" target="_blank">
+        <div class="card-label">Live data</div>
+        <div class="card-title">Google Sheet</div>
+        <div class="card-desc">Daily, weekly, and monthly signal output with moving averages and price deviation metrics</div>
       </a>
-      <a href="elementary/" class="card">
-        <div class="card-label">Elementary</div>
-        <div class="card-title">Test Report</div>
-        <div class="card-desc">Data quality tests, anomaly detection results, and pipeline run history</div>
+      <a href="https://github.com/jongreglarson/aluminum-signal" class="card" target="_blank">
+        <div class="card-label">Source</div>
+        <div class="card-title">GitHub Repository</div>
+        <div class="card-desc">Pipeline code, GitHub Actions workflow, and full project history</div>
       </a>
     </div>
-    <p class="footer">Data sourced from Yahoo Finance (ALI=F) &middot; <a href="https://github.com/jongreglarson/aluminum-signal" style="color:#334155">GitHub</a></p>
+
+    <p class="footer">
+      Data: Yahoo Finance (ALI=F) &middot; Python &middot; GitHub Actions &middot;
+      <a href="https://github.com/jongreglarson/aluminum-signal/blob/main/ingestion/pipeline.py">pipeline.py</a>
+    </p>
   </div>
 </body>
 </html>
